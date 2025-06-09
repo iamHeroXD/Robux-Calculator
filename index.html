@@ -36,6 +36,23 @@
             margin-bottom: 20px;
             font-size: 24px;
         }
+        .toggle {
+            margin-bottom: 20px;
+        }
+        .toggle button {
+            padding: 8px 20px;
+            margin: 0 5px;
+            border: none;
+            border-radius: 20px;
+            background: #ddd;
+            color: #333;
+            cursor: pointer;
+            transition: background 0.3s, color 0.3s;
+        }
+        .toggle button.active {
+            background: #6e8efb;
+            color: white;
+        }
         input {
             padding: 12px;
             margin: 10px 0;
@@ -59,6 +76,8 @@
             font-size: 16px;
             cursor: pointer;
             transition: background 0.3s, transform 0.2s, box-shadow 0.3s;
+            position: relative;
+            overflow: hidden;
         }
         .calc-button:hover {
             background: #5b79e0;
@@ -68,6 +87,32 @@
         .calc-button:active {
             transform: translateY(1px);
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+        .calc-button.loading::after {
+            content: '';
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotateX(0deg) rotateY(0deg);
+            background: linear-gradient(45deg, #6e8efb, #a777e3, #6e8efb);
+            clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+            animation: spinPolyhedron 0.8s ease-in-out infinite, pulseGlow 1.2s ease-in-out infinite;
+            box-shadow: 0 0 12px rgba(110, 142, 251, 0.8), 0 0 20px rgba(167, 119, 227, 0.5);
+        }
+        @keyframes spinPolyhedron {
+            0% { transform: translate(-50%, -50%) rotateX(0deg) rotateY(0deg); }
+            50% { transform: translate(-50%, -50%) rotateX(180deg) rotateY(180deg); }
+            100% { transform: translate(-50%, -50%) rotateX(360deg) rotateY(360deg); }
+        }
+        @keyframes pulseGlow {
+            0% { box-shadow: 0 0 12px rgba(110, 142, 251, 0.8), 0 0 20px rgba(167, 119, 227, 0.5); }
+            50% { box-shadow: 0 0 18px rgba(110, 142, 251, 1), 0 0 30px rgba(167, 119, 227, 0.7); }
+            100% { box-shadow: 0 0 12px rgba(110, 142, 251, 0.8), 0 0 20px rgba(167, 119, 227, 0.5); }
+        }
+        .calc-button.loading span {
+            opacity: 0;
         }
         #result {
             margin-top: 20px;
@@ -104,28 +149,20 @@
 <body>
     <canvas id="particleCanvas"></canvas>
     <div class="calculator" id="calculator">
-        <h2>Robux Tax Calculator</h2>
+        <h2 id="calcTitle">Robux Tax Calculator</h2>
+        <div class="toggle">
+            <button id="afterTaxBtn" class="active" onclick="switchMode('afterTax')">After Tax</button>
+            <button id="beforeTaxBtn" onclick="switchMode('beforeTax')">Before Tax</button>
+        </div>
         <input type="number" id="currencyInput" placeholder="Enter Robux amount" min="0">
         <br>
-        <button class="calc-button" onclick="calculateTax()">Calculate</button>
+        <button class="calc-button" onclick="calculateTax()"><span>Calculate</span></button>
         <div id="result"></div>
         <div class="footer">By <a href="https://iamheroxd.github.io/HustleHub/" target="_blank">HustleHub Team</a></div>
     </div>
 
     <script>
-        // 3D Tilt Effect
-        const calculator = document.getElementById('calculator');
-        calculator.addEventListener('mousemove', (e) => {
-            const rect = calculator.getBoundingClientRect();
-            const x = e.clientX - rect.left - rect.width / 2;
-            const y = e.clientY - rect.top - rect.height / 2;
-            const rotateX = y / rect.height * 20;
-            const rotateY = -x / rect.width * 20;
-            calculator.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
-        });
-        calculator.addEventListener('mouseleave', () => {
-            calculator.style.transform = 'rotateX(0deg) rotateY(0deg)';
-        });
+
 
         // Particle Background
         const canvas = document.getElementById('particleCanvas');
@@ -166,7 +203,17 @@
         animateParticles();
 
         // Calculator Logic
+        let currentMode = 'afterTax';
+        function switchMode(mode) {
+            currentMode = mode;
+            document.getElementById('afterTaxBtn').classList.toggle('active', mode === 'afterTax');
+            document.getElementById('beforeTaxBtn').classList.toggle('active', mode === 'beforeTax');
+            document.getElementById('currencyInput').placeholder = mode === 'afterTax' ? 'Enter Robux amount' : 'Enter desired Robux after tax';
+            document.getElementById('result').innerHTML = '';
+        }
         function calculateTax() {
+            const button = document.querySelector('.calc-button');
+            button.classList.add('loading');
             const input = document.getElementById('currencyInput').value;
             const amount = parseFloat(input);
             const taxRate = 0.30; // 30% tax for Robux
@@ -174,15 +221,26 @@
             resultDiv.classList.remove('show');
 
             if (isNaN(amount) || amount < 0) {
-                resultDiv.innerHTML = 'Please enter a valid Robux amount.';
-                setTimeout(() => resultDiv.classList.add('show'), 100);
+                setTimeout(() => {
+                    button.classList.remove('loading');
+                    resultDiv.innerHTML = 'Please enter a valid Robux amount.';
+                    setTimeout(() => resultDiv.classList.add('show'), 100);
+                }, 800);
                 return;
             }
 
-            const taxAmount = amount * taxRate;
-            const afterTax = amount - taxAmount;
-            resultDiv.innerHTML = `After 30% tax, you get: <strong>${afterTax.toFixed(2)}</strong> Robux`;
-            setTimeout(() => resultDiv.classList.add('show'), 100);
+            setTimeout(() => {
+                button.classList.remove('loading');
+                if (currentMode === 'afterTax') {
+                    const taxAmount = amount * taxRate;
+                    const afterTax = amount - taxAmount;
+                    resultDiv.innerHTML = `After 30% tax, you get: <strong>${afterTax.toFixed(2)}</strong> Robux`;
+                } else {
+                    const beforeTax = amount / (1 - taxRate);
+                    resultDiv.innerHTML = `To get ${amount.toFixed(2)} Robux after 30% tax, you need: <strong>${beforeTax.toFixed(2)}</strong> Robux before tax`;
+                }
+                setTimeout(() => resultDiv.classList.add('show'), 100);
+            }, 800);
         }
     </script>
 </body>
